@@ -6,6 +6,40 @@
  * Copyright (C) 2015-2021, RtBrick, Inc.
  */
 
+
+/*
+ * Logging
+ */
+
+/*
+ * List of log-ids.
+ */
+enum {
+    LOG_ID_MIN,
+    NORMAL,
+    ERROR,
+    BGP,
+    LOG_ID_MAX
+};
+
+struct keyval_ {
+    u_int val;       /* value */
+    const char *key; /* key */
+};
+
+struct __attribute__((__packed__)) log_id_
+{
+    uint8_t enable;
+    void (*filter_cb)(struct log_id_ *, void *); /* Callback function for filtering */
+    void *filter_arg;
+};
+
+#define LOG(log_id_, fmt_, ...)					\
+    do { if (log_id[log_id_].enable) {fprintf(stdout, "%s "fmt_, log_format_timestamp(), ##__VA_ARGS__);} } while (0)
+
+extern struct log_id_ log_id[];
+extern char * log_format_timestamp(void);
+
 /*
  * Advertised route.
  */
@@ -48,6 +82,8 @@ __attribute__ ((__packed__)) struct ctx_ {
     CIRCLEQ_HEAD(rib_head_, rib_entry_ ) rib_qhead;
 
     uint32_t num_routes; /* To be generated routes */
+    uint32_t num_nexthops; /* Nexthop limit */
+
     rib_entry_t base; /* Fill out for all base values */
 
     /* scratchpad */

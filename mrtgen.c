@@ -6,6 +6,7 @@
  * Copyright (C) 2015-2021, RtBrick, Inc.
  */
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,6 +15,7 @@
 #include <dirent.h>
 #include <getopt.h>
 #include <limits.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/queue.h>
 #include <arpa/inet.h>
@@ -24,15 +26,114 @@
  * Globals
  */
 int verbose = 1;
+struct log_id_ log_id[LOG_ID_MAX];
 
 /*
  * Prototypes
  */
 
 /*
+ * Log target / name translation table.
+ */
+struct keyval_ log_names[] = {
+    { BGP,           "bgp" },
+    { ERROR,         "error" },
+    { NORMAL,        "normal" },
+    { 0, NULL}
+};
+
+/*
+ * Format the logging timestamp.
+ */
+char *
+log_format_timestamp (void)
+{
+    static char ts_str[sizeof("Dec 24 08:07:13.711541")];
+    struct timespec now;
+    struct tm tm;
+    int len;
+
+    clock_gettime(CLOCK_REALTIME, &now);
+    localtime_r(&now.tv_sec, &tm);
+
+    len = strftime(ts_str, sizeof(ts_str), "%b %d %H:%M:%S", &tm);
+    snprintf(ts_str+len, sizeof(ts_str) - len, ".%06lu",
+	     now.tv_nsec / 1000);
+
+    return ts_str;
+}
+
+/*
+ * Enable logging.
+ */
+void
+log_enable (char *log_name)
+{
+    int idx;
+
+    idx = 0;
+    while (log_names[idx].key) {
+	if (strcmp(log_names[idx].key, log_name) == 0) {
+	    log_id[log_names[idx].val].enable = 1;
+	}
+	idx++;
+    }
+}
+
+/*
+ * Format the prefix of the rib-entry.
+ */
+char *
+format_prefix (rib_entry_t *re)
+{
+    static char buf[128];
+    static char plen_buf[8];
+    size_t len;
+
+    switch (re->prefix_afi) {
+    case AF_INET:
+	inet_ntop(AF_INET, &re->prefix.v4, buf, sizeof(buf));
+	break;
+    case AF_INET6:
+	inet_ntop(AF_INET6, &re->prefix.v6, buf, sizeof(buf));
+	break;
+    default:
+	snprintf(buf, sizeof(buf), "unknown afi %u", re->prefix_afi);
+    }
+
+    snprintf(plen_buf, sizeof(plen_buf), "/%u", re->prefix_len);
+    strncat(buf, plen_buf, sizeof(buf));
+
+    return buf;
+}
+
+/*
+ * Format the nexthop of the rib-entry.
+ */
+char *
+format_nexthop (rib_entry_t *re)
+{
+    static char buf[128];
+
+    switch (re->nexthop_afi) {
+    case AF_INET:
+	inet_ntop(AF_INET, &re->nexthop.v4, buf, sizeof(buf));
+	break;
+    case AF_INET6:
+	inet_ntop(AF_INET6, &re->nexthop.v6, buf, sizeof(buf));
+	break;
+    default:
+	snprintf(buf, sizeof(buf), "unknown afi %u", re->nexthop_afi);
+    }
+
+    return buf;
+}
+
+/*
  * Command line options.
  */
 static struct option long_options[] = {
+    { "logging",            required_argument,  NULL, 'l' },
     { "nexthop",            required_argument,  NULL, 'n' },
     { "verbose",            no_argument,        NULL, 'v' },
     { NULL,                 0,                  NULL,  0 }
@@ -41,11 +142,25 @@ static struct option long_options[] = {
 char *
 mrtgen_print_usage_arg (struct option *option)
 {
-    if (option->has_arg == 1) {
-        return (char *)" <args>";
-    }
+    static char buf[128];
+    struct keyval_ *ptr;
+    int len;
 
-    return (char *)"";
+    if (option->has_arg == 1) {
+
+	if (strcmp(option->name, "logging") == 0) {
+	    len = 0;
+	    ptr = log_names;
+	    while (ptr->key) {
+		len += snprintf(buf+len, sizeof(buf)-len, "%s%s", len ? "|" : " ", ptr->key);
+		ptr++;
+	    }
+	    return buf;
+	}
+
+	return " <args>";
+    }
+    return "";
 }
 
 void
@@ -70,6 +185,11 @@ mrtgen_init_ctx (ctx_t *ctx)
 {
     memset(ctx, 0, sizeof(ctx_t));
 
+    CIRCLEQ_INIT(&ctx->rib_qhead);
+
+    ctx->num_routes = 50000; /* Number of routes */
+    ctx->num_nexthops = 2000; /* Number of nexthops */
+
     ctx->base.as_path[0] = 100000;
     ctx->base.origin = 0; /* IGP */
 
@@ -88,6 +208,17 @@ mrtgen_init_ctx (ctx_t *ctx)
     ctx->base.label[0] = 100000;
 }
 
+void
+mrtgen_log_ctx (ctx_t *ctx)
+{
+    LOG(NORMAL, "MRT route generation parameters\n");
+    LOG(NORMAL, " Origin %i\n", ctx->base.origin);
+    LOG(NORMAL, " Base AS %u\n", ctx->base.as_path[0]);
+    LOG(NORMAL, " Base Prefix %s, %u routes\n", format_prefix(&ctx->base), ctx->num_routes);
+    LOG(NORMAL, " Base Nexthop %s, %u nexthops\n", format_nexthop(&ctx->base), ctx->num_nexthops);
+    LOG(NORMAL, " Base label %u\n", ctx->base.label[0]);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -98,13 +229,19 @@ main (int argc, char *argv[])
      * Init default options.
      */
     mrtgen_init_ctx(&ctx);
+    log_id[NORMAL].enable = true;
+    log_id[ERROR].enable = true;
 
     /*
      * Parse options.
      */
     idx = 0;
-    while ((opt = getopt_long(argc, argv,"c:hv", long_options, &idx )) != -1) {
+    while ((opt = getopt_long(argc, argv,"l:n:hv", long_options, &idx )) != -1) {
         switch (opt) {
+        case 'l':
+	    log_enable(optarg);
+	    break;
+
 	case 'n':
 	    /* nexthop */
 	    if (inet_pton(AF_INET, optarg, &ctx.base.nexthop.v4)) {
@@ -124,12 +261,10 @@ main (int argc, char *argv[])
         }
     }
 
-#if 0
-    if (1) {
-	MRTGEN_LOG("Completed %u SPF repetitions, init %luus, run %luus\n",
-		   repeat, init_sum/repeat, run_sum/repeat);
-    }
-#endif
+    /*
+     * Log configured options
+     */
+    mrtgen_log_ctx(&ctx);
 
     /*
      * Flush and close all we have.
