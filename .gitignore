@@ -1,0 +1,16 @@
+CMakeFiles/
+cmake_install.cmake
+Makefile
+mrtgen
+*~
+TAGS
+*.txt
+vg.log
+cachegrind.out.*
+callgrind.out.*
+*.so
+*.so.debug
+*.debug
+cppcheck.xml
+*-pak
+*.deb
