@@ -10,5 +10,5 @@ set(PROJECT_SOURCE_DIR ./)
 set(PROJECT_HEADER_DIR ./)
 set(HEADER_INSTALL_DIR /usr/local/include/)
 
-add_executable(mrtgen mrtgen.c)
+add_executable(mrtgen mrtgen_rib.c mrtgen.c)
 #target_compile_options(fasthash_test PRIVATE -Wall -Wextra -pedantic -Werror)

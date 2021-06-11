@@ -6,6 +6,19 @@
  * Copyright (C) 2015-2021, RtBrick, Inc.
  */
 
+#include <sys/types.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <dirent.h>
+#include <getopt.h>
+#include <limits.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <sys/queue.h>
+#include <arpa/inet.h>
 
 /*
  * Logging
@@ -30,8 +43,6 @@ struct keyval_ {
 struct __attribute__((__packed__)) log_id_
 {
     uint8_t enable;
-    void (*filter_cb)(struct log_id_ *, void *); /* Callback function for filtering */
-    void *filter_arg;
 };
 
 #define LOG(log_id_, fmt_, ...)					\
@@ -45,6 +56,7 @@ extern char * log_format_timestamp(void);
  */
 __attribute__ ((__packed__)) struct rib_entry_ {
 
+    uint32_t seq;
     uint32_t as_path[8]; /* Assume AS Path won't be larger than 8 */
     uint8_t origin;
 
@@ -68,7 +80,7 @@ __attribute__ ((__packed__)) struct rib_entry_ {
     uint32_t label[4];
 
     /* double linked list to conveniently walk */
-    CIRCLEQ_ENTRY(rib_entry_) rib_entry_qnode;
+    CIRCLEQ_ENTRY(rib_entry_) rib_qnode;
 };
 
 typedef struct rib_entry_ rib_entry_t;
@@ -99,3 +111,5 @@ typedef struct ctx_ ctx_t;
  * External API
  */
 
+void mrtgen_generate_rib(ctx_t *ctx);
+void mrtgen_delete_rib(ctx_t *ctx);

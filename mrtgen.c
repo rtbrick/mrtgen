@@ -6,20 +6,6 @@
  * Copyright (C) 2015-2021, RtBrick, Inc.
  */
 
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <errno.h>
-#include <dirent.h>
-#include <getopt.h>
-#include <limits.h>
-#include <time.h>
-#include <sys/stat.h>
-#include <sys/queue.h>
-#include <arpa/inet.h>
-
 #include "mrtgen.h"
 
 /*
@@ -267,8 +253,14 @@ main (int argc, char *argv[])
     mrtgen_log_ctx(&ctx);
 
     /*
+     * Generate RIB
+     */
+    mrtgen_generate_rib(&ctx);
+
+    /*
      * Flush and close all we have.
      */
+    mrtgen_delete_rib(&ctx);
 
     return 0;
 }
