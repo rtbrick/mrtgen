@@ -8,6 +8,7 @@
 
 #include "mrtgen.h"
 #include "mrt.h"
+#include "bgp.h"
 
 __uint128_t
 mrtgen_load_addr (uint8_t *buf, uint len)
@@ -288,10 +289,33 @@ mrtgen_get_rib_subtype (rib_entry_t *re)
 }
 
 void
+mrtgen_write_pa (ctx_t *ctx, rib_entry_t *re)
+{
+    uint8_t pa_flags;
+
+    /* Origin */
+    pa_flags = 0;
+    push_be_uint(ctx, 1, pa_flags); /* flags */
+    push_be_uint(ctx, 1, ORIGIN); /* type */
+    push_be_uint(ctx, 1, 1); /* length */
+    push_be_uint(ctx, 1, re->origin);
+
+    /* IPv4 nexthop */
+    if (re->nexthop_afi == AF_INET) {
+	push_be_uint(ctx, 1, pa_flags); /* flags */
+	push_be_uint(ctx, 1, NEXT_HOP); /* type */
+	push_be_uint(ctx, 1, 4); /* length */
+	mrtgen_copy_addr(ctx->write_buf+ctx->write_idx, re->nexthop.v4, 4);
+	ctx->write_idx += 4;
+    }
+
+}
+
+void
 mrtgen_write_ribentry (ctx_t *ctx, rib_entry_t *re)
 {
     __uint128_t addr;
-    uint start_idx, length_idx, length;
+    uint start_idx, length_idx, length, pa_length_idx, pa_length;
 
     start_idx = ctx->write_idx;
 
@@ -319,9 +343,13 @@ mrtgen_write_ribentry (ctx_t *ctx, rib_entry_t *re)
     push_be_uint(ctx, 4, ctx->now); /* originated timestamp */
 
     push_be_uint(ctx, 2, 0); /* BGP path attribute length */
+    pa_length_idx = ctx->write_idx;
+    mrtgen_write_pa(ctx, re);
+    pa_length = ctx->write_idx - pa_length_idx;
+    write_be_uint(ctx->write_buf+pa_length_idx-2, 2, pa_length); /* Update PA length field */
 
     length = ctx->write_idx - length_idx;
-    write_be_uint(ctx->write_buf+start_idx+8, 4, length);
+    write_be_uint(ctx->write_buf+start_idx+8, 4, length); /* Update length field */
 }
 
 /*
