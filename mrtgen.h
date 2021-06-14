@@ -97,7 +97,7 @@ __attribute__ ((__packed__)) struct ctx_ {
     /* list for walking our routes */
     CIRCLEQ_HEAD(rib_head_, rib_entry_ ) rib_qhead;
 
-    uint32_t num_routes; /* To be generated routes */
+    uint32_t num_prefixes; /* To be generated prefixes */
     uint32_t num_nexthops; /* Nexthop limit */
 
     rib_entry_t base; /* Fill out for all base values */

@@ -120,8 +120,12 @@ format_nexthop (rib_entry_t *re)
  * Command line options.
  */
 static struct option long_options[] = {
-    { "logging",            required_argument,  NULL, 'l' },
-    { "nexthop",            required_argument,  NULL, 'n' },
+    { "log",                required_argument,  NULL, 't' },
+    { "label-base",         required_argument,  NULL, 'l' },
+    { "nexthop-base",       required_argument,  NULL, 'n' },
+    { "nexthop-num",        required_argument,  NULL, 'N' },
+    { "prefix-base",        required_argument,  NULL, 'p' },
+    { "prefix-num",         required_argument,  NULL, 'P' },
     { "verbose",            no_argument,        NULL, 'v' },
     { NULL,                 0,                  NULL,  0 }
 };
@@ -176,8 +180,8 @@ mrtgen_init_ctx (ctx_t *ctx)
 
     ctx->filename = "gen.mrt"; /* Filename */
 
-    //    ctx->num_routes = 50000; /* Number of routes */
-    ctx->num_routes = 10; /* Number of routes */
+    //    ctx->num_prefixes = 50000; /* Number of prefixes */
+    ctx->num_prefixes = 10; /* Number of prefixes */
     ctx->num_nexthops = 2000; /* Number of nexthops */
 
     ctx->base.as_path[0] = 100000;
@@ -210,10 +214,10 @@ mrtgen_init_ctx (ctx_t *ctx)
 void
 mrtgen_log_ctx (ctx_t *ctx)
 {
-    LOG(NORMAL, "MRT route generation parameters for file %s\n", ctx->filename);
+    LOG(NORMAL, "MRT prefix generation parameters for file %s\n", ctx->filename);
     LOG(NORMAL, " Origin %i\n", ctx->base.origin);
     LOG(NORMAL, " Base AS %u\n", ctx->base.as_path[0]);
-    LOG(NORMAL, " Base Prefix %s, %u routes\n", format_prefix(&ctx->base), ctx->num_routes);
+    LOG(NORMAL, " Base Prefix %s, %u prefixes\n", format_prefix(&ctx->base), ctx->num_prefixes);
     LOG(NORMAL, " Base Nexthop %s, %u nexthops\n", format_nexthop(&ctx->base), ctx->num_nexthops);
     LOG(NORMAL, " Base label %u\n", ctx->base.label[0]);
 }
@@ -235,14 +239,34 @@ main (int argc, char *argv[])
      * Parse options.
      */
     idx = 0;
-    while ((opt = getopt_long(argc, argv,"l:n:hv", long_options, &idx )) != -1) {
+    while ((opt = getopt_long(argc, argv,"t:l:n:N:p:P:hv", long_options, &idx )) != -1) {
         switch (opt) {
-        case 'l':
+        case 't':
+	    /* logging */
 	    log_enable(optarg);
 	    break;
 
+        case 'P':
+	    /* number of prefixes */
+	    ctx.num_prefixes = atoi(optarg);
+	    break;
+
+	case 'p':
+	    /* base prefix */
+	    if (inet_pton(AF_INET, optarg, &ctx.base.prefix.v4)) {
+		ctx.base.prefix_afi = AF_INET;
+	    } else if (inet_pton(AF_INET6, optarg, &ctx.base.prefix.v6)) {
+		ctx.base.prefix_afi = AF_INET6;
+	    }
+	    break;
+
+	case 'N':
+	    /* number of nexthops */
+	    ctx.num_nexthops = atoi(optarg);
+	    break;
+
 	case 'n':
-	    /* nexthop */
+	    /* base nexthop */
 	    if (inet_pton(AF_INET, optarg, &ctx.base.nexthop.v4)) {
 		ctx.base.nexthop_afi = AF_INET;
 	    } else if (inet_pton(AF_INET6, optarg, &ctx.base.nexthop.v6)) {

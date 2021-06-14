@@ -35,6 +35,15 @@ mrtgen_store_addr (__uint128_t addr, uint8_t *buf, uint len)
     }
 }
 
+void
+mrtgen_copy_addr (uint8_t *dst, uint8_t *src, uint len)
+{
+    __uint128_t addr;
+
+    addr = mrtgen_load_addr(src, len);
+    mrtgen_store_addr(addr, dst, len);
+}
+
 /*
  * Generate the RIB that we're about to write.
  */
@@ -62,7 +71,7 @@ mrtgen_generate_rib (ctx_t *ctx)
      */
     memcpy(&re_templ, &ctx->base, sizeof(rib_entry_t));
 
-    for (seq = 0; seq < ctx->num_routes; seq++) {
+    for (seq = 0; seq < ctx->num_prefixes; seq++) {
 	re = malloc(sizeof(rib_entry_t));
 	if (!re) {
 	    LOG(ERROR, "Could not allocate rib-entry\n");
@@ -262,6 +271,59 @@ mrtgen_write_peertable (ctx_t *ctx)
     write_be_uint(ctx->write_buf+start_idx+8, 4, length);
 }
 
+uint
+mrtgen_get_rib_subtype (rib_entry_t *re)
+{
+    uint32_t af;
+
+    af = re->prefix_afi << 8 | re->prefix_safi;
+    switch (af) {
+    case (AF_INET << 8 | 1):
+	return MRT_RIB_IPV4_UNICAST;
+    case (AF_INET6 << 8 | 1):
+	return MRT_RIB_IPV6_UNICAST;
+    default:
+	return MRT_RIB_GENERIC;
+    }
+}
+
+void
+mrtgen_write_ribentry (ctx_t *ctx, rib_entry_t *re)
+{
+    __uint128_t addr;
+    uint start_idx, length_idx, length;
+
+    start_idx = ctx->write_idx;
+
+    push_be_uint(ctx, 4, ctx->now); /* timestamp */
+    push_be_uint(ctx, 2, MRT_TABLE_DUMP_V2); /* type */
+    push_be_uint(ctx, 2, mrtgen_get_rib_subtype(re)); /* subtype */
+
+    push_be_uint(ctx, 4, 0); /* length */
+    length_idx = ctx->write_idx;
+
+    push_be_uint(ctx, 4, re->seq); /* sequence */
+    push_be_uint(ctx, 1, re->prefix_len); /* prefix length */
+    switch (re->prefix_afi) {
+    case AF_INET:
+	mrtgen_copy_addr(ctx->write_buf+ctx->write_idx, re->prefix.v4, 4);
+	break;
+    case AF_INET6:
+	mrtgen_copy_addr(ctx->write_buf+ctx->write_idx, re->prefix.v6, 16);
+	break;
+    }
+    ctx->write_idx += (re->prefix_len + 7) / 8; /* packed prefix encoding */
+    push_be_uint(ctx, 2, 1); /* entry count */
+
+    push_be_uint(ctx, 2, 0); /* peer_index */
+    push_be_uint(ctx, 4, ctx->now); /* originated timestamp */
+
+    push_be_uint(ctx, 2, 0); /* BGP path attribute length */
+
+    length = ctx->write_idx - length_idx;
+    write_be_uint(ctx->write_buf+start_idx+8, 4, length);
+}
+
 /*
  * Write the entire RIB into a MRT file.
  * Use a buffered write for this.
@@ -273,12 +335,16 @@ mrtgen_write_rib (ctx_t *ctx)
     uint count;
 
     /*
-     * First write the peer table
+     * First write the peer table.
      */
     mrtgen_write_peertable(ctx);
 
+    /*
+     * Next write a set of RIB entries.
+     */
     count = 0;
-    CIRCLEQ_FOREACH_REVERSE(re, &ctx->rib_qhead, rib_qnode) {
+    CIRCLEQ_FOREACH(re, &ctx->rib_qhead, rib_qnode) {
+	mrtgen_write_ribentry(ctx, re);
 	count++;
     }
 
