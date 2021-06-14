@@ -16,9 +16,12 @@
 #include <getopt.h>
 #include <limits.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/queue.h>
 #include <arpa/inet.h>
+
+#define WRITEBUFSIZE 1024*256
 
 /*
  * Logging
@@ -32,6 +35,7 @@ enum {
     NORMAL,
     ERROR,
     BGP,
+    IO,
     LOG_ID_MAX
 };
 
@@ -98,6 +102,26 @@ __attribute__ ((__packed__)) struct ctx_ {
 
     rib_entry_t base; /* Fill out for all base values */
 
+    /* MRT file */
+    char *filename;
+    FILE *file;
+    int sockfd;
+
+    /* write buffer */
+    u_char *write_buf;
+    uint write_idx;
+
+    /* epoch */
+    time_t now;
+
+    /* MRT peertable */
+    uint8_t peer_id[4];
+    union {
+	uint8_t v4[4];
+	uint8_t v6[16];
+    } peer_ip;
+    uint32_t peer_as;
+
     /* scratchpad */
     struct {
 	struct sockaddr_in  addr4;
@@ -112,4 +136,5 @@ typedef struct ctx_ ctx_t;
  */
 
 void mrtgen_generate_rib(ctx_t *ctx);
+void mrtgen_write_rib(ctx_t *ctx);
 void mrtgen_delete_rib(ctx_t *ctx);

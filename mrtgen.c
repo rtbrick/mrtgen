@@ -23,6 +23,7 @@ struct log_id_ log_id[LOG_ID_MAX];
  */
 struct keyval_ log_names[] = {
     { BGP,           "bgp" },
+    { IO,            "io" },
     { ERROR,         "error" },
     { NORMAL,        "normal" },
     { 0, NULL}
@@ -173,7 +174,10 @@ mrtgen_init_ctx (ctx_t *ctx)
 
     CIRCLEQ_INIT(&ctx->rib_qhead);
 
-    ctx->num_routes = 50000; /* Number of routes */
+    ctx->filename = "gen.mrt"; /* Filename */
+
+    //    ctx->num_routes = 50000; /* Number of routes */
+    ctx->num_routes = 10; /* Number of routes */
     ctx->num_nexthops = 2000; /* Number of nexthops */
 
     ctx->base.as_path[0] = 100000;
@@ -192,12 +196,21 @@ mrtgen_init_ctx (ctx_t *ctx)
 
     /* Label */
     ctx->base.label[0] = 100000;
+
+    /* Write buffer */
+    ctx->write_buf = malloc(WRITEBUFSIZE);
+
+    /* MRT must haves */
+    time(&ctx->now);
+    inet_pton(AF_INET, "192.168.1.1", &ctx->peer_id);
+    inet_pton(AF_INET, "192.168.1.1", &ctx->peer_ip.v4);
+    ctx->peer_as = 4200000000;
 }
 
 void
 mrtgen_log_ctx (ctx_t *ctx)
 {
-    LOG(NORMAL, "MRT route generation parameters\n");
+    LOG(NORMAL, "MRT route generation parameters for file %s\n", ctx->filename);
     LOG(NORMAL, " Origin %i\n", ctx->base.origin);
     LOG(NORMAL, " Base AS %u\n", ctx->base.as_path[0]);
     LOG(NORMAL, " Base Prefix %s, %u routes\n", format_prefix(&ctx->base), ctx->num_routes);
@@ -258,9 +271,30 @@ main (int argc, char *argv[])
     mrtgen_generate_rib(&ctx);
 
     /*
+     * Open file
+     */
+    ctx.file = fopen(ctx.filename, "w");
+    if (!ctx.file) {
+	LOG(ERROR, "Could not open MRT file %s", ctx.filename);
+	return 0;
+    }
+    ctx.sockfd = fileno(ctx.file);
+    if (ctx.sockfd == -1) {
+	LOG(ERROR, "Could not set FD for MRT file %s", ctx.filename);
+	return 0;
+    }
+
+    /*
+     * Write RIB
+     */
+    mrtgen_write_rib(&ctx);
+
+    /*
      * Flush and close all we have.
      */
     mrtgen_delete_rib(&ctx);
+    free(ctx.write_buf);
+    fclose(ctx.file);
 
     return 0;
 }
