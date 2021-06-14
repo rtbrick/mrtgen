@@ -23,3 +23,5 @@
 #define MP_UNREACH_NLRI  15
 #define EXTENDED_COMMUNITY 16
 #define LARGE_COMMUNITY  32
+
+#define AS_SEQ 2

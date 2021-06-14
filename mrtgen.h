@@ -55,13 +55,15 @@ struct __attribute__((__packed__)) log_id_
 extern struct log_id_ log_id[];
 extern char * log_format_timestamp(void);
 
+#define AS_PATH_MAX 8
+
 /*
  * Advertised route.
  */
 __attribute__ ((__packed__)) struct rib_entry_ {
 
     uint32_t seq;
-    uint32_t as_path[8]; /* Assume AS Path won't be larger than 8 */
+    uint32_t as_path[AS_PATH_MAX]; /* Assume AS Path won't be larger */
     uint8_t origin;
 
     /* Prefix */

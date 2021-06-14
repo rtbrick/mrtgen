@@ -54,6 +54,7 @@ mrtgen_generate_rib (ctx_t *ctx)
     rib_entry_t *re;
     rib_entry_t re_templ;
     __uint128_t addr, prefix_inc;
+    __uint128_t nexthop_inc = 1;
     uint seq;
 
     switch(ctx->base.prefix_afi) {
@@ -86,7 +87,7 @@ mrtgen_generate_rib (ctx_t *ctx)
 	memcpy(re, &re_templ, sizeof(rib_entry_t));
 
 	/*
-	 * Increment iterators in template.
+	 * Increment prefix in template.
 	 */
 	switch (re_templ.prefix_afi) {
 	case AF_INET:
@@ -98,6 +99,22 @@ mrtgen_generate_rib (ctx_t *ctx)
 	    addr = mrtgen_load_addr(re_templ.prefix.v6, 16);
 	    addr += prefix_inc;
 	    mrtgen_store_addr(addr, re_templ.prefix.v6, 16);
+	    break;
+	}
+
+	/*
+	 * Increment nexthop in template.
+	 */
+	switch (re_templ.nexthop_afi) {
+	case AF_INET:
+	    addr = mrtgen_load_addr(re_templ.nexthop.v4, 4);
+	    addr += nexthop_inc;
+	    mrtgen_store_addr(addr, re_templ.nexthop.v4, 4);
+	    break;
+	case AF_INET6:
+	    addr = mrtgen_load_addr(re_templ.nexthop.v6, 16);
+	    addr += nexthop_inc;
+	    mrtgen_store_addr(addr, re_templ.nexthop.v6, 16);
 	    break;
 	}
 
@@ -292,6 +309,8 @@ void
 mrtgen_write_pa (ctx_t *ctx, rib_entry_t *re)
 {
     uint8_t pa_flags;
+    uint as_path_idx, as_path_length;
+    uint idx, seg_len;
 
     /* Origin */
     pa_flags = 0;
@@ -299,6 +318,26 @@ mrtgen_write_pa (ctx_t *ctx, rib_entry_t *re)
     push_be_uint(ctx, 1, ORIGIN); /* type */
     push_be_uint(ctx, 1, 1); /* length */
     push_be_uint(ctx, 1, re->origin);
+
+    /* AS PATH */
+    push_be_uint(ctx, 1, pa_flags); /* flags */
+    push_be_uint(ctx, 1, AS_PATH); /* type */
+    push_be_uint(ctx, 1, 0); /* length */
+    as_path_idx = ctx->write_idx;
+
+    /* count seg_len */
+    for (seg_len = 0; seg_len < AS_PATH_MAX; seg_len++) {
+	if (!re->as_path[seg_len]) {
+	    break;
+	}
+    }
+    push_be_uint(ctx, 1, AS_SEQ); /* path segment type */
+    push_be_uint(ctx, 1, seg_len); /* seg_len */
+    for (idx = 0; idx < seg_len; idx++) {
+	push_be_uint(ctx, 4, re->as_path[idx]);
+    }
+    as_path_length = ctx->write_idx - as_path_idx;
+    write_be_uint(ctx->write_buf+as_path_idx-1, 1, as_path_length); /* Update AS Path length field */
 
     /* IPv4 nexthop */
     if (re->nexthop_afi == AF_INET) {
