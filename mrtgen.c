@@ -29,6 +29,21 @@ struct keyval_ log_names[] = {
     { 0, NULL}
 };
 
+const char *
+keyval_get_key (struct keyval_ *keyval, int val)
+{
+    struct keyval_ *ptr;
+
+    ptr = keyval;
+    while (ptr->key) {
+	if (ptr->val == val) {
+	    return ptr->key;
+	}
+	ptr++;
+    }
+    return "unknown";
+}
+
 /*
  * Format the logging timestamp.
  */
@@ -171,6 +186,17 @@ mrtgen_print_usage (void)
     }
 }
 
+/*
+ * BGP origin type codes
+ */
+struct keyval_ bgp_origin_types[] = {
+    { 0,       "IGP" },
+    { 1,       "EGP" },
+    { 2,       "Incomplete" },
+    { 0, NULL}
+};
+
+
 void
 mrtgen_init_ctx (ctx_t *ctx)
 {
@@ -215,7 +241,7 @@ void
 mrtgen_log_ctx (ctx_t *ctx)
 {
     LOG(NORMAL, "MRT prefix generation parameters for file %s\n", ctx->filename);
-    LOG(NORMAL, " Origin %i\n", ctx->base.origin);
+    LOG(NORMAL, " Origin %s\n", keyval_get_key(bgp_origin_types, ctx->base.origin));
     LOG(NORMAL, " Base AS %u\n", ctx->base.as_path[0]);
     LOG(NORMAL, " Base Prefix %s, %u prefixes\n", format_prefix(&ctx->base), ctx->num_prefixes);
     LOG(NORMAL, " Base Nexthop %s, %u nexthops\n", format_nexthop(&ctx->base), ctx->num_nexthops);
