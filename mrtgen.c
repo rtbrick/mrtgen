@@ -136,7 +136,8 @@ format_nexthop (rib_entry_t *re)
  */
 static struct option long_options[] = {
     { "log",                required_argument,  NULL, 't' },
-    { "label-base",         required_argument,  NULL, 'l' },
+    { "local-preference",   required_argument,  NULL, 'l' },
+    { "label-base",         required_argument,  NULL, 'm' },
     { "nexthop-base",       required_argument,  NULL, 'n' },
     { "nexthop-num",        required_argument,  NULL, 'N' },
     { "prefix-base",        required_argument,  NULL, 'p' },
@@ -246,6 +247,9 @@ mrtgen_log_ctx (ctx_t *ctx)
     LOG(NORMAL, " Base Prefix %s, %u prefixes\n", format_prefix(&ctx->base), ctx->num_prefixes);
     LOG(NORMAL, " Base Nexthop %s, %u nexthops\n", format_nexthop(&ctx->base), ctx->num_nexthops);
     LOG(NORMAL, " Base label %u\n", ctx->base.label[0]);
+    if (ctx->base.localpref) {
+	LOG(NORMAL, " Local preference %u\n", ctx->base.localpref);
+    }
 }
 
 int
@@ -265,11 +269,16 @@ main (int argc, char *argv[])
      * Parse options.
      */
     idx = 0;
-    while ((opt = getopt_long(argc, argv,"t:l:n:N:p:P:hv", long_options, &idx )) != -1) {
+    while ((opt = getopt_long(argc, argv,"t:l:M:n:N:p:P:hv", long_options, &idx )) != -1) {
         switch (opt) {
         case 't':
 	    /* logging */
 	    log_enable(optarg);
+	    break;
+
+	case 'l':
+	    /* localpref */
+	    ctx.base.localpref = atoi(optarg);
 	    break;
 
         case 'P':

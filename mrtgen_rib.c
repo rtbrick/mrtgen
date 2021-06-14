@@ -348,6 +348,13 @@ mrtgen_write_pa (ctx_t *ctx, rib_entry_t *re)
 	ctx->write_idx += 4;
     }
 
+    /* Local Pref */
+    if (re->localpref) {
+	push_be_uint(ctx, 1, pa_flags); /* flags */
+	push_be_uint(ctx, 1, LOCAL_PREF); /* type */
+	push_be_uint(ctx, 1, 4); /* length */
+	push_be_uint(ctx, 4, re->localpref);
+    }
 }
 
 void

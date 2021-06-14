@@ -84,6 +84,7 @@ __attribute__ ((__packed__)) struct rib_entry_ {
     } nexthop;
 
     uint32_t label[4];
+    uint32_t localpref;
 
     /* double linked list to conveniently walk */
     CIRCLEQ_ENTRY(rib_entry_) rib_qnode;
