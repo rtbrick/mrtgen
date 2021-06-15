@@ -18,6 +18,18 @@ struct log_id_ log_id[LOG_ID_MAX];
  * Prototypes
  */
 
+const char banner[] = "\n"
+"      ____   __   ____         _        __            ,/\n"
+"     / __ \\ / /_ / __ ) _____ (_)_____ / /__        ,'/\n"
+"    / /_/ // __// __  |/ ___// // ___// //_/      ,' /\n"
+"   / _, _// /_ / /_/ // /   / // /__ / ,<       ,'  /_____,    \n"
+"  /_/ |_| \\__//_____//_/   /_/ \\___//_/|_|    .'____    ,'   \n"
+"      __  _______  ____________                    /  ,'\n"
+"     /  |/  / __ \\/_  __/ ____/_   ____           / ,'\n"
+"    / /|_/ / /_/ / / / / / __/ _ \\/ __ \\         /,'\n"
+"   / /  / / _, _/ / / / /_/ /  __/ / / /        / \n"
+"  /_/  /_/_/ |_| /_/  \\____/\\___/_/ /_/\n\n";
+
 /*
  * Log target / name translation table.
  */
@@ -176,6 +188,7 @@ mrtgen_print_usage (void)
 {
     u_int idx;
 
+    printf("%s", banner);
     printf("Usage: mrtgen [OPTIONS]\n\n");
 
     for (idx = 0; ; idx++) {
@@ -333,6 +346,8 @@ main (int argc, char *argv[])
 	    exit(EXIT_FAILURE);
         }
     }
+
+    printf("%s", banner);
 
     /*
      * Log configured options
