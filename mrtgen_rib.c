@@ -311,7 +311,7 @@ mrtgen_write_pa (ctx_t *ctx, rib_entry_t *re)
     uint idx, seg_len;
 
     /* Origin */
-    pa_flags = 0;
+    pa_flags = TRANSITIVE;
     push_be_uint(ctx, 1, pa_flags); /* flags */
     push_be_uint(ctx, 1, ORIGIN); /* type */
     push_be_uint(ctx, 1, 1); /* length */
