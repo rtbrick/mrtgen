@@ -135,6 +135,7 @@ format_nexthop (rib_entry_t *re)
  * Command line options.
  */
 static struct option long_options[] = {
+    { "as-base",            required_argument,  NULL, 'a' },
     { "log",                required_argument,  NULL, 't' },
     { "local-preference",   required_argument,  NULL, 'l' },
     { "label-base",         required_argument,  NULL, 'm' },
@@ -269,11 +270,16 @@ main (int argc, char *argv[])
      * Parse options.
      */
     idx = 0;
-    while ((opt = getopt_long(argc, argv,"t:l:M:n:N:p:P:hv", long_options, &idx )) != -1) {
+    while ((opt = getopt_long(argc, argv,"a:t:l:M:n:N:p:P:hv", long_options, &idx )) != -1) {
         switch (opt) {
         case 't':
 	    /* logging */
 	    log_enable(optarg);
+	    break;
+
+	case 'a':
+	    /* base AS */
+	    ctx.base.as_path[0] = atoi(optarg);
 	    break;
 
 	case 'l':
