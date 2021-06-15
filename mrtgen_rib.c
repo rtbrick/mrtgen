@@ -225,13 +225,6 @@ void
 push_be_uint (ctx_t *ctx, uint length, unsigned long long value)
 {
     /*
-     * Buffer 90% full ?
-     */
-    if ((ctx->write_idx) >= ((WRITEBUFSIZE*9)/10)) {
-	mrtgen_fflush(ctx);
-    }
-
-    /*
      * Write the data.
      */
     write_be_uint(ctx->write_buf + ctx->write_idx, length, value);
@@ -420,6 +413,13 @@ mrtgen_write_rib (ctx_t *ctx)
     CIRCLEQ_FOREACH(re, &ctx->rib_qhead, rib_qnode) {
 	mrtgen_write_ribentry(ctx, re);
 	count++;
+
+	/*
+	 * Buffer 90% full ?
+	 */
+	if ((ctx->write_idx) >= ((WRITEBUFSIZE*9)/10)) {
+	    mrtgen_fflush(ctx);
+	}
     }
 
     mrtgen_fflush(ctx);
