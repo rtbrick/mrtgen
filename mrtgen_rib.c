@@ -55,6 +55,7 @@ mrtgen_generate_rib (ctx_t *ctx)
     rib_entry_t re_templ;
     __uint128_t addr, prefix_inc;
     __uint128_t nexthop_inc = 1;
+    uint nexthop_count;
     uint seq;
 
     switch(ctx->base.prefix_afi) {
@@ -73,6 +74,7 @@ mrtgen_generate_rib (ctx_t *ctx)
      */
     memcpy(&re_templ, &ctx->base, sizeof(rib_entry_t));
 
+    nexthop_count = 1;
     for (seq = 0; seq < ctx->num_prefixes; seq++) {
 	re = malloc(sizeof(rib_entry_t));
 	if (!re) {
@@ -105,17 +107,20 @@ mrtgen_generate_rib (ctx_t *ctx)
 	/*
 	 * Increment nexthop in template.
 	 */
-	switch (re_templ.nexthop_afi) {
-	case AF_INET:
-	    addr = mrtgen_load_addr(re_templ.nexthop.v4, 4);
-	    addr += nexthop_inc;
-	    mrtgen_store_addr(addr, re_templ.nexthop.v4, 4);
-	    break;
-	case AF_INET6:
-	    addr = mrtgen_load_addr(re_templ.nexthop.v6, 16);
-	    addr += nexthop_inc;
-	    mrtgen_store_addr(addr, re_templ.nexthop.v6, 16);
-	    break;
+	if (nexthop_count < ctx->num_nexthops) {
+	    switch (re_templ.nexthop_afi) {
+	    case AF_INET:
+		addr = mrtgen_load_addr(re_templ.nexthop.v4, 4);
+		addr += nexthop_inc;
+		mrtgen_store_addr(addr, re_templ.nexthop.v4, 4);
+		break;
+	    case AF_INET6:
+		addr = mrtgen_load_addr(re_templ.nexthop.v6, 16);
+		addr += nexthop_inc;
+		mrtgen_store_addr(addr, re_templ.nexthop.v6, 16);
+		break;
+	    }
+	    nexthop_count++;
 	}
 
 	/*
