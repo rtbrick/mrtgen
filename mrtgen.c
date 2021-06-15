@@ -294,10 +294,19 @@ main (int argc, char *argv[])
 
 	case 'p':
 	    /* base prefix */
-	    if (inet_pton(AF_INET, optarg, &ctx.base.prefix.v4)) {
-		ctx.base.prefix_afi = AF_INET;
-	    } else if (inet_pton(AF_INET6, optarg, &ctx.base.prefix.v6)) {
-		ctx.base.prefix_afi = AF_INET6;
+	    {
+		char *tok;
+
+		tok = strtok(optarg, "/");
+		if (tok && inet_pton(AF_INET, tok, &ctx.base.prefix.v4)) {
+		    ctx.base.prefix_afi = AF_INET;
+		} else if (tok && inet_pton(AF_INET6, tok, &ctx.base.prefix.v6)) {
+		    ctx.base.prefix_afi = AF_INET6;
+		}
+		tok = strtok(NULL, "/");
+		if (tok) {
+		    ctx.base.prefix_len = atoi(tok);
+		}
 	    }
 	    break;
 
