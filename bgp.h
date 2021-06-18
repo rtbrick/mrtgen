@@ -25,3 +25,7 @@
 #define LARGE_COMMUNITY  32
 
 #define AS_SEQ 2
+
+#define SAFI_UNICAST       1
+#define SAFI_LABEL_UNICAST 4
+#define SAFI_VPN_UNICAST 128

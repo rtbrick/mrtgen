@@ -10,6 +10,12 @@
 #include "mrt.h"
 #include "bgp.h"
 
+/*
+ * Prototypes.
+ */
+void push_be_uint(ctx_t *ctx, uint length, unsigned long long value);
+
+
 __uint128_t
 mrtgen_load_addr (uint8_t *buf, uint len)
 {
@@ -44,6 +50,28 @@ mrtgen_copy_addr (uint8_t *dst, uint8_t *src, uint len)
     addr = mrtgen_load_addr(src, len);
     mrtgen_store_addr(addr, dst, len);
 }
+
+void
+mrtgen_push_addr (ctx_t *ctx, uint8_t *src, uint len)
+{
+    mrtgen_copy_addr(ctx->write_buf+ctx->write_idx, src, len);
+    ctx->write_idx += len;
+}
+
+void
+mrtgen_push_prefix (ctx_t *ctx, rib_entry_t *re)
+{
+    u_int len;
+
+    /* packed prefix length in bytes */
+    len = (re->prefix_len + 7) / 8;
+
+    push_be_uint(ctx, 1, re->prefix_len); /* prefix length */
+
+    mrtgen_copy_addr(ctx->write_buf+ctx->write_idx,re->prefix.v4, len);
+    ctx->write_idx += len;
+}
+
 
 /*
  * Generate the RIB that we're about to write.
@@ -294,14 +322,47 @@ mrtgen_get_rib_subtype (rib_entry_t *re)
 
     af = re->prefix_afi << 8 | re->prefix_safi;
     switch (af) {
-    case (AF_INET << 8 | 1):
+    case (AF_INET << 8 | SAFI_UNICAST):
 	return MRT_RIB_IPV4_UNICAST;
-    case (AF_INET6 << 8 | 1):
+    case (AF_INET6 << 8 | SAFI_UNICAST):
 	return MRT_RIB_IPV6_UNICAST;
     default:
 	return MRT_RIB_GENERIC;
     }
 }
+
+uint
+mrtgen_get_nexthop_length (rib_entry_t *re)
+{
+    uint32_t af;
+
+    af = re->nexthop_afi << 8 | re->nexthop_safi;
+    switch (af) {
+    case (AF_INET << 8 | SAFI_UNICAST):
+	return 4;
+    case (AF_INET6 << 8 | SAFI_UNICAST):
+	return 16;
+    default:
+	return 0;
+    }
+}
+
+void
+mrtgen_write_mp_reach_nlri (ctx_t *ctx, rib_entry_t *re)
+{
+    uint32_t af;
+
+    af = re->prefix_afi << 8 | re->prefix_safi;
+    switch (af) {
+    case (AF_INET << 8 | SAFI_UNICAST):
+    case (AF_INET6 << 8 | SAFI_UNICAST): /* fall through */
+	mrtgen_push_prefix(ctx, re);
+	break;
+    default:
+	break;
+    }
+}
+
 
 void
 mrtgen_write_pa (ctx_t *ctx, rib_entry_t *re)
@@ -318,6 +379,7 @@ mrtgen_write_pa (ctx_t *ctx, rib_entry_t *re)
     push_be_uint(ctx, 1, re->origin);
 
     /* AS PATH */
+    pa_flags = TRANSITIVE;
     push_be_uint(ctx, 1, pa_flags); /* flags */
     push_be_uint(ctx, 1, AS_PATH); /* type */
     push_be_uint(ctx, 1, 0); /* length */
@@ -339,19 +401,49 @@ mrtgen_write_pa (ctx_t *ctx, rib_entry_t *re)
 
     /* IPv4 nexthop */
     if (re->nexthop_afi == AF_INET) {
+	pa_flags = TRANSITIVE;
 	push_be_uint(ctx, 1, pa_flags); /* flags */
 	push_be_uint(ctx, 1, NEXT_HOP); /* type */
 	push_be_uint(ctx, 1, 4); /* length */
-	mrtgen_copy_addr(ctx->write_buf+ctx->write_idx, re->nexthop.v4, 4);
-	ctx->write_idx += 4;
+	mrtgen_push_addr(ctx, re->nexthop.v4, 4);
     }
 
     /* Local Pref */
     if (re->localpref) {
+	pa_flags = TRANSITIVE;
 	push_be_uint(ctx, 1, pa_flags); /* flags */
 	push_be_uint(ctx, 1, LOCAL_PREF); /* type */
 	push_be_uint(ctx, 1, 4); /* length */
 	push_be_uint(ctx, 4, re->localpref);
+    }
+
+    /* MP Reach */
+    if (re->prefix_afi != AF_INET || re->prefix_safi != 1) {
+
+	uint mp_reach_idx, mp_reach_length, nh_len;
+
+	pa_flags = TRANSITIVE;
+	push_be_uint(ctx, 1, pa_flags); /* flags */
+	push_be_uint(ctx, 1, MP_REACH_NLRI); /* type */
+	push_be_uint(ctx, 1, 0); /* length */
+	mp_reach_idx = ctx->write_idx;
+
+	push_be_uint(ctx, 2, re->prefix_afi);  /* afi */
+	push_be_uint(ctx, 1, re->prefix_safi); /* safi */
+
+	/* Nexthop  */
+	nh_len = mrtgen_get_nexthop_length(re);
+	push_be_uint(ctx, 1, nh_len);
+	mrtgen_push_addr(ctx, re->nexthop.v4, nh_len);
+
+	push_be_uint(ctx, 1, 0); /* reserved */
+
+	/* NLRI */
+	mrtgen_write_mp_reach_nlri(ctx, re);
+
+	/* Update MP REACH PA length field */
+	mp_reach_length = ctx->write_idx - mp_reach_idx;
+	write_be_uint(ctx->write_buf+mp_reach_idx-1, 1, mp_reach_length);
     }
 }
 
@@ -371,16 +463,17 @@ mrtgen_write_ribentry (ctx_t *ctx, rib_entry_t *re)
     length_idx = ctx->write_idx;
 
     push_be_uint(ctx, 4, re->seq); /* sequence */
-    push_be_uint(ctx, 1, re->prefix_len); /* prefix length */
-    switch (re->prefix_afi) {
-    case AF_INET:
-	mrtgen_copy_addr(ctx->write_buf+ctx->write_idx, re->prefix.v4, 4);
-	break;
-    case AF_INET6:
-	mrtgen_copy_addr(ctx->write_buf+ctx->write_idx, re->prefix.v6, 16);
-	break;
+
+    /*
+     * Write afi/safi for the non ipv4 and non ipv6 RIBs
+     */
+    if (mrtgen_get_rib_subtype(re) == MRT_RIB_GENERIC) {
+	push_be_uint(ctx, 2, re->prefix_afi);  /* afi */
+	push_be_uint(ctx, 1, re->prefix_safi); /* safi */
     }
-    ctx->write_idx += (re->prefix_len + 7) / 8; /* packed prefix encoding */
+
+    mrtgen_push_prefix(ctx, re);
+
     push_be_uint(ctx, 2, 1); /* entry count */
 
     push_be_uint(ctx, 2, 0); /* peer_index */
