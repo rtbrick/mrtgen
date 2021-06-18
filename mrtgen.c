@@ -239,9 +239,6 @@ mrtgen_init_ctx (ctx_t *ctx)
     ctx->base.nexthop_safi = 1; /* unicast */
     inet_pton(AF_INET, "172.16.0.0", &ctx->base.nexthop.v4);
 
-    /* Label */
-    ctx->base.label[0] = 100000;
-
     /* Write buffer */
     ctx->write_buf = malloc(WRITEBUFSIZE);
 
@@ -260,7 +257,9 @@ mrtgen_log_ctx (ctx_t *ctx)
     LOG(NORMAL, " Base AS %u\n", ctx->base.as_path[0]);
     LOG(NORMAL, " Base Prefix %s, %u prefixes\n", format_prefix(&ctx->base), ctx->num_prefixes);
     LOG(NORMAL, " Base Nexthop %s, %u nexthops\n", format_nexthop(&ctx->base), ctx->num_nexthops);
-    LOG(NORMAL, " Base label %u\n", ctx->base.label[0]);
+    if (ctx->base.label[0]) {
+	LOG(NORMAL, " Base label %u\n", ctx->base.label[0]);
+    }
     if (ctx->base.localpref) {
 	LOG(NORMAL, " Local preference %u\n", ctx->base.localpref);
     }
@@ -283,7 +282,7 @@ main (int argc, char *argv[])
      * Parse options.
      */
     idx = 0;
-    while ((opt = getopt_long(argc, argv,"a:t:l:M:n:N:p:P:hv", long_options, &idx )) != -1) {
+    while ((opt = getopt_long(argc, argv,"a:t:l:m:n:N:p:P:hv", long_options, &idx )) != -1) {
         switch (opt) {
         case 't':
 	    /* logging */
@@ -293,6 +292,11 @@ main (int argc, char *argv[])
 	case 'a':
 	    /* base AS */
 	    ctx.base.as_path[0] = atoi(optarg);
+	    break;
+
+	case 'm':
+	    /* base label */
+	    ctx.base.label[0] = atoi(optarg);
 	    break;
 
 	case 'l':
