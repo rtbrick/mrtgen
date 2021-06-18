@@ -14,3 +14,6 @@
 #define MRT_RIB_IPV4_UNICAST 2
 #define MRT_RIB_IPV6_UNICAST 4
 #define MRT_RIB_GENERIC      6
+
+#define MRT_PEER_TYPE_AS4  0x2
+#define MRT_PEER_TYPE_IPV6 0x1

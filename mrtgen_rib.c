@@ -271,7 +271,6 @@ push_be_uint (ctx_t *ctx, uint length, unsigned long long value)
 void
 mrtgen_write_peertable (ctx_t *ctx)
 {
-    __uint128_t addr;
     uint start_idx, length_idx, length;
 
     start_idx = ctx->write_idx;
@@ -289,30 +288,21 @@ mrtgen_write_peertable (ctx_t *ctx)
 
     switch (ctx->base.prefix_afi) {
     case AF_INET:
-	push_be_uint(ctx, 1, 0x2); /* peer type ipv4, 32-bit AS */
-	addr = mrtgen_load_addr(ctx->peer_id, 4);
-	push_be_uint(ctx, 4, addr); /* peer bgp-id */
-
-	addr = mrtgen_load_addr(ctx->peer_ip.v4, 4);
-	push_be_uint(ctx, 4, addr); /* peer ipv4 */
-
+	push_be_uint(ctx, 1, MRT_PEER_TYPE_AS4); /* peer type ipv4, 32-bit AS */
+	mrtgen_push_addr(ctx, ctx->peer_id, 4); /* peer bgp-id */
+	mrtgen_push_addr(ctx, ctx->peer_ip.v4, 4); /* peer ipv4 */
 	push_be_uint(ctx, 4, ctx->peer_as); /* peer as */
 	break;
     case AF_INET6:
-	push_be_uint(ctx, 1, 0x3); /* peer type ipv6, 32-bit AS */
-	addr = mrtgen_load_addr(ctx->peer_id, 4);
-	push_be_uint(ctx, 4, addr); /* peer bgp-id */
-
-	addr = mrtgen_load_addr(ctx->peer_ip.v6, 16); /* peer ipv6 */
-	mrtgen_store_addr(addr, ctx->write_buf+ctx->write_idx, 16);
-	ctx->write_buf += 16;
-
+	push_be_uint(ctx, 1, MRT_PEER_TYPE_AS4|MRT_PEER_TYPE_IPV6); /* peer type ipv6, 32-bit AS */
+	mrtgen_push_addr(ctx, ctx->peer_id, 4); /* peer bgp-id */
+	mrtgen_push_addr(ctx, ctx->peer_ip.v6, 16); /* peer ipv6 */
 	push_be_uint(ctx, 4, ctx->peer_as); /* peer as */
 	break;
     }
 
     length = ctx->write_idx - length_idx;
-    write_be_uint(ctx->write_buf+start_idx+8, 4, length);
+    write_be_uint(ctx->write_buf+length_idx-4, 4, length);
 }
 
 uint
@@ -450,7 +440,6 @@ mrtgen_write_pa (ctx_t *ctx, rib_entry_t *re)
 void
 mrtgen_write_ribentry (ctx_t *ctx, rib_entry_t *re)
 {
-    __uint128_t addr;
     uint start_idx, length_idx, length, pa_length_idx, pa_length;
 
     start_idx = ctx->write_idx;
