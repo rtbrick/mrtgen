@@ -2,8 +2,8 @@ cmake_minimum_required (VERSION 2.6)
 project (mrtgen)
 
 #debug symbols
-set(CMAKE_BUILD_TYPE Debug)
-#set(CMAKE_BUILD_TYPE RelWithDebInfo)
+#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 #set(CMAKE_BUILD_TYPE Release)
 
 set(PROJECT_SOURCE_DIR ./)
