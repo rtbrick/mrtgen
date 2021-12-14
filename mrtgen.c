@@ -148,6 +148,7 @@ format_nexthop (rib_entry_t *re)
  */
 static struct option long_options[] = {
     { "as-base",            required_argument,  NULL, 'a' },
+    { "help",               no_argument,        NULL, 'h' },
     { "log",                required_argument,  NULL, 't' },
     { "local-preference",   required_argument,  NULL, 'l' },
     { "label-base",         required_argument,  NULL, 'm' },
@@ -168,7 +169,7 @@ mrtgen_print_usage_arg (struct option *option)
 
     if (option->has_arg == 1) {
 
-	if (strcmp(option->name, "logging") == 0) {
+	if (strcmp(option->name, "log") == 0) {
 	    len = 0;
 	    ptr = log_names;
 	    while (ptr->key) {
