@@ -34,7 +34,7 @@ const char banner[] = "\n"
  * Log target / name translation table.
  */
 struct keyval_ log_names[] = {
-    { BGP,           "bgp" },
+    { UPDATE,        "update" },
     { IO,            "io" },
     { ERROR,         "error" },
     { NORMAL,        "normal" },

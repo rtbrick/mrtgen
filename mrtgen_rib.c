@@ -72,6 +72,11 @@ mrtgen_push_prefix (ctx_t *ctx, rib_entry_t *re)
     ctx->write_idx += len;
 }
 
+void
+mrtgen_log_rib (rib_entry_t *re)
+{
+    LOG(UPDATE, " Prefix %s, Nexthop %s\n", format_prefix(re), format_nexthop(re));
+}
 
 /*
  * Generate the RIB that we're about to write.
@@ -85,6 +90,8 @@ mrtgen_generate_rib (ctx_t *ctx)
     __uint128_t nexthop_inc = 1;
     uint nexthop_count;
     uint seq;
+
+    LOG(UPDATE, "Generating RIB updates\n");
 
     switch(ctx->base.prefix_afi) {
     case AF_INET:
@@ -149,12 +156,24 @@ mrtgen_generate_rib (ctx_t *ctx)
 		break;
 	    }
 	    nexthop_count++;
+	} else {
+
+	    /*
+	     * Nexthop wrap. Reset template back to base.
+	     */
+	    memcpy(&re_templ.nexthop, &ctx->base.nexthop, 16);
+	    nexthop_count = 1;
 	}
 
 	/*
 	 * Add to list.
 	 */
 	CIRCLEQ_INSERT_TAIL(&ctx->rib_qhead, re, rib_qnode);
+
+	/* Log */
+	if (log_id[UPDATE].enable) {
+	    mrtgen_log_rib(re);
+	}
     }
 }
 

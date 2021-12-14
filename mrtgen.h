@@ -34,7 +34,7 @@ enum {
     LOG_ID_MIN,
     NORMAL,
     ERROR,
-    BGP,
+    UPDATE,
     IO,
     LOG_ID_MAX
 };
@@ -133,6 +133,12 @@ __attribute__ ((__packed__)) struct ctx_ {
     } sp;
 };
 typedef struct ctx_ ctx_t;
+
+/*
+ * Internal API
+ */
+char *format_prefix(rib_entry_t *);
+char *format_nexthop(rib_entry_t *);
 
 /*
  * External API
